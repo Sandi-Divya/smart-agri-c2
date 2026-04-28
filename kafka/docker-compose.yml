@@ -1,0 +1,64 @@
+version: '3.8'
+services:
+  zookeeper:
+    image: wurstmeister/zookeeper
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+  kafka:
+    image: wurstmeister/kafka
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_ADVERTISED_HOST_NAME: kafka
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_CREATE_TOPICS: "sensor.ambient_temp:1:1,sensor.humidity:1:1,sensor.pressure:1:1,sensor.soil_moisture:1:1,sensor.soil_temp:1:1,sensor.solar_radiation:1:1,sensor.dlq:1:1,sensor.anomaly_candidates:1:1"
+    depends_on:
+      - zookeeper
+  mqtt:
+    image: eclipse-mosquitto
+    container_name: mqtt
+    ports:
+      - "1883:1883"
+  nodered:
+    image: nodered/node-red
+    container_name: nodered
+    ports:
+      - "1880:1880"
+    volumes:
+      - ./nodered_data:/data
+    depends_on:
+      - mqtt
+      - kafka
+  spark:
+    image: apache/spark:3.5.0
+    container_name: spark
+    environment:
+      - SPARK_MODE=master
+    ports:
+      - "8080:8080"
+      - "7077:7077"
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
+    depends_on:
+      - kafka
+  spark-worker:
+    image: apache/spark:3.5.0
+    container_name: spark-worker
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark:7077
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark:7077
+    depends_on:
+      - spark
+
+  spark-job:
+    build:
+      context: ../streaming
+      dockerfile: Dockerfile
+    container_name: spark-job
+    depends_on:
+      - kafka
+    restart: on-failure
+    
+volumes: {}

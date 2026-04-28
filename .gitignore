@@ -1,0 +1,11 @@
+# Node-RED data
+kafka/nodered_data/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# Docker
+*.log
