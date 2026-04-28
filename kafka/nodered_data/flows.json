@@ -10,10 +10,10 @@
     {
         "id": "02c00db991791d72",
         "type": "mqtt-broker",
-        "name": "",
-        "broker": "localhost",
+        "name": "C1 HiveMQ Broker",
+        "broker": "broker.hivemq.com",
         "port": 1883,
-        "clientid": "",
+        "clientid": "nodered-c2-subscriber",
         "autoConnect": true,
         "usetls": false,
         "protocolVersion": 4,
@@ -63,28 +63,40 @@
         "loglevel": "error"
     },
     {
-        "id": "a0fa2ae6a7da56a4",
-        "type": "inject",
+        "id": "mqtt_in_c1",
+        "type": "mqtt in",
         "z": "58537460369eabf7",
-        "name": "Simulate soil_moisture",
-        "props": [
-            {
-                "p": "payload"
-            },
-            {
-                "p": "topic",
-                "vt": "str"
-            }
-        ],
-        "repeat": "5",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "{\"device_id\":\"esp32-01\",\"field_id\":\"field1\",\"timestamp\":\"2026-04-28T00:00:00Z\",\"parameter\":\"soil_moisture\",\"value\":42.5,\"unit\":\"%\"}",
-        "payloadType": "json",
-        "x": 230,
-        "y": 100,
+        "name": "C1 MQTT In",
+        "topic": "zone1/sensors/#",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "02c00db991791d72",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 170,
+        "y": 500,
+        "wires": [
+            [
+                "map_c1_to_schema"
+            ]
+        ]
+    },
+    {
+        "id": "map_c1_to_schema",
+        "type": "function",
+        "z": "58537460369eabf7",
+        "name": "Map C1 to Schema",
+        "func": "const topic = msg.topic;\nconst value = parseFloat(msg.payload);\n\n// Map C1 topic to our parameter name\nconst topicMap = {\n    'zone1/sensors/temperature': 'ambient_temp',\n    'zone1/sensors/humidity': 'humidity',\n    'zone1/sensors/pressure': 'pressure',\n    'zone1/sensors/soil_moisture': 'soil_moisture'\n};\n\nconst parameter = topicMap[topic];\n\n// Skip topics we don't need\nif (!parameter) return null;\n\nfunction getUnit(param) {\n    const units = {\n        'ambient_temp': 'C',\n        'humidity': '%',\n        'pressure': 'hPa',\n        'soil_moisture': '%'\n    };\n    return units[param] || '';\n}\n\n// Build our standard schema\nmsg.payload = {\n    device_id: 'esp32-c1-01',\n    field_id: 'field1',\n    timestamp: new Date().toISOString(),\n    parameter: parameter,\n    value: value,\n    unit: getUnit(parameter)\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 370,
+        "y": 500,
         "wires": [
             [
                 "b09ba8387fab3615"
@@ -96,14 +108,14 @@
         "type": "function",
         "z": "58537460369eabf7",
         "name": "Validate & Route",
-        "func": "const required = ['device_id', 'field_id', 'timestamp', 'parameter', 'value', 'unit'];\nconst missing = required.filter(k => \n    msg.payload[k] === undefined || \n    msg.payload[k] === null || \n    msg.payload[k] === ''\n);\n\nif (missing.length > 0) {\n    msg.topic = 'sensor.dlq';\n    msg.payload = { \n        ...msg.payload, \n        error: 'Missing fields: ' + missing.join(', '), \n        dlq_at: new Date().toISOString() \n    };\n    return [null, null, msg, msg];  // output 3 & 4 = DLQ\n}\n\nconst topicMap = {\n    'soil_moisture': 'sensor.soil_moisture',\n    'soil_temp': 'sensor.soil_temp',\n    'ambient_temp': 'sensor.ambient_temp',\n    'humidity': 'sensor.humidity',\n    'pressure': 'sensor.pressure',\n    'solar_radiation': 'sensor.solar_radiation'\n};\n\nmsg.topic = topicMap[msg.payload.parameter] || 'sensor.dlq';\nmsg.payload = JSON.stringify(msg.payload);\nreturn [msg, msg, null, null];  // output 1 & 2 = valid",
+        "func": "const required = ['device_id', 'field_id', 'timestamp', 'parameter', 'value', 'unit'];\nconst missing = required.filter(k => \n    msg.payload[k] === undefined || \n    msg.payload[k] === null || \n    msg.payload[k] === ''\n);\n\nif (missing.length > 0) {\n    msg.topic = 'sensor.dlq';\n    msg.payload = { \n        ...msg.payload, \n        error: 'Missing fields: ' + missing.join(', '), \n        dlq_at: new Date().toISOString() \n    };\n    return [null, null, msg, msg];\n}\n\nconst topicMap = {\n    'soil_moisture': 'sensor.soil_moisture',\n    'soil_temp': 'sensor.soil_temp',\n    'ambient_temp': 'sensor.ambient_temp',\n    'humidity': 'sensor.humidity',\n    'pressure': 'sensor.pressure',\n    'solar_radiation': 'sensor.solar_radiation'\n};\n\nmsg.topic = topicMap[msg.payload.parameter] || 'sensor.dlq';\nmsg.payload = JSON.stringify(msg.payload);\nreturn [msg, msg, null, null];",
         "outputs": 4,
         "timeout": 0,
         "noerr": 0,
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 470,
+        "x": 600,
         "y": 240,
         "wires": [
             [
@@ -195,19 +207,28 @@
         "wires": []
     },
     {
+        "id": "a0fa2ae6a7da56a4",
+        "type": "inject",
+        "z": "58537460369eabf7",
+        "name": "Simulate soil_moisture",
+        "props": [{"p": "payload"}, {"p": "topic", "vt": "str"}],
+        "repeat": "5",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"device_id\":\"esp32-01\",\"field_id\":\"field1\",\"timestamp\":\"2026-04-28T00:00:00Z\",\"parameter\":\"soil_moisture\",\"value\":42.5,\"unit\":\"%\"}",
+        "payloadType": "json",
+        "x": 230,
+        "y": 100,
+        "wires": [["b09ba8387fab3615"]]
+    },
+    {
         "id": "b476d94d5f9b71e8",
         "type": "inject",
         "z": "58537460369eabf7",
         "name": "soil_temp",
-        "props": [
-            {
-                "p": "payload"
-            },
-            {
-                "p": "topic",
-                "vt": "str"
-            }
-        ],
+        "props": [{"p": "payload"}, {"p": "topic", "vt": "str"}],
         "repeat": "5",
         "crontab": "",
         "once": false,
@@ -217,26 +238,14 @@
         "payloadType": "json",
         "x": 190,
         "y": 160,
-        "wires": [
-            [
-                "b09ba8387fab3615"
-            ]
-        ]
+        "wires": [["b09ba8387fab3615"]]
     },
     {
         "id": "5e4018eaeff6321d",
         "type": "inject",
         "z": "58537460369eabf7",
         "name": "ambient_temp",
-        "props": [
-            {
-                "p": "payload"
-            },
-            {
-                "p": "topic",
-                "vt": "str"
-            }
-        ],
+        "props": [{"p": "payload"}, {"p": "topic", "vt": "str"}],
         "repeat": "5",
         "crontab": "",
         "once": false,
@@ -246,26 +255,14 @@
         "payloadType": "json",
         "x": 200,
         "y": 220,
-        "wires": [
-            [
-                "b09ba8387fab3615"
-            ]
-        ]
+        "wires": [["b09ba8387fab3615"]]
     },
     {
         "id": "e58aad494a3b71bc",
         "type": "inject",
         "z": "58537460369eabf7",
         "name": "humidity",
-        "props": [
-            {
-                "p": "payload"
-            },
-            {
-                "p": "topic",
-                "vt": "str"
-            }
-        ],
+        "props": [{"p": "payload"}, {"p": "topic", "vt": "str"}],
         "repeat": "5",
         "crontab": "",
         "once": false,
@@ -275,26 +272,14 @@
         "payloadType": "json",
         "x": 180,
         "y": 280,
-        "wires": [
-            [
-                "b09ba8387fab3615"
-            ]
-        ]
+        "wires": [["b09ba8387fab3615"]]
     },
     {
         "id": "4888fb767aaea973",
         "type": "inject",
         "z": "58537460369eabf7",
         "name": "pressure",
-        "props": [
-            {
-                "p": "payload"
-            },
-            {
-                "p": "topic",
-                "vt": "str"
-            }
-        ],
+        "props": [{"p": "payload"}, {"p": "topic", "vt": "str"}],
         "repeat": "5",
         "crontab": "",
         "once": false,
@@ -304,26 +289,14 @@
         "payloadType": "json",
         "x": 180,
         "y": 340,
-        "wires": [
-            [
-                "b09ba8387fab3615"
-            ]
-        ]
+        "wires": [["b09ba8387fab3615"]]
     },
     {
         "id": "76d671e87d36b8db",
         "type": "inject",
         "z": "58537460369eabf7",
         "name": "solar_radiation",
-        "props": [
-            {
-                "p": "payload"
-            },
-            {
-                "p": "topic",
-                "vt": "str"
-            }
-        ],
+        "props": [{"p": "payload"}, {"p": "topic", "vt": "str"}],
         "repeat": "5",
         "crontab": "",
         "once": false,
@@ -333,10 +306,6 @@
         "payloadType": "json",
         "x": 200,
         "y": 400,
-        "wires": [
-            [
-                "b09ba8387fab3615"
-            ]
-        ]
+        "wires": [["b09ba8387fab3615"]]
     }
 ]
