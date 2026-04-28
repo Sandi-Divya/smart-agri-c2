@@ -1,5 +1,6 @@
 # Node-RED data
-kafka/nodered_data/
+kafka/nodered_data/lib/
+kafka/nodered_data/node_modules/
 
 # Python
 __pycache__/
