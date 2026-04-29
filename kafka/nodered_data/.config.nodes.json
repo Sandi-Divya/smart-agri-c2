@@ -430,8 +430,8 @@
     "node-red-contrib-kafkajs": {
         "name": "node-red-contrib-kafkajs",
         "version": "0.0.7",
-        "local": true,
-        "user": true,
+        "local": false,
+        "user": false,
         "nodes": {
             "kafka-consumer": {
                 "name": "kafka-consumer",
@@ -439,10 +439,10 @@
                     "kafkajs-consumer"
                 ],
                 "enabled": true,
-                "local": true,
+                "local": false,
                 "user": false,
                 "module": "node-red-contrib-kafkajs",
-                "file": "/data/node_modules/node-red-contrib-kafkajs/js/kafka-consumer.js"
+                "file": "/usr/src/node-red/node_modules/node-red-contrib-kafkajs/js/kafka-consumer.js"
             },
             "kafka-producer": {
                 "name": "kafka-producer",
@@ -450,10 +450,10 @@
                     "kafkajs-producer"
                 ],
                 "enabled": true,
-                "local": true,
+                "local": false,
                 "user": false,
                 "module": "node-red-contrib-kafkajs",
-                "file": "/data/node_modules/node-red-contrib-kafkajs/js/kafka-producer.js"
+                "file": "/usr/src/node-red/node_modules/node-red-contrib-kafkajs/js/kafka-producer.js"
             },
             "kafka-broker": {
                 "name": "kafka-broker",
@@ -461,10 +461,10 @@
                     "kafkajs-client"
                 ],
                 "enabled": true,
-                "local": true,
+                "local": false,
                 "user": false,
                 "module": "node-red-contrib-kafkajs",
-                "file": "/data/node_modules/node-red-contrib-kafkajs/js/kafka-client.js"
+                "file": "/usr/src/node-red/node_modules/node-red-contrib-kafkajs/js/kafka-client.js"
             }
         }
     }
