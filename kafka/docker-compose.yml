@@ -57,8 +57,29 @@ services:
       context: ../streaming
       dockerfile: Dockerfile
     container_name: spark-job
+    environment:
+      - KAFKA_BROKER=kafka.cropwise.garden:9094
+      - INFLUX_URL=https://influxdb.cropwise.garden
+      - INFLUX_TOKEN=my-super-secret-auth-token
+      - INFLUX_ORG=smart_agri
+      - INFLUX_BUCKET=sensor_data
     depends_on:
       - kafka
+    restart: on-failure
+    
+  fastapi:
+    build:
+      context: ../api
+      dockerfile: Dockerfile
+    container_name: fastapi
+    ports:
+      - "8000:8000"
+    environment:
+      - INFLUX_URL=https://influxdb.cropwise.garden
+      - INFLUX_TOKEN=my-super-secret-auth-token
+      - INFLUX_ORG=smart_agri
+      - INFLUX_BUCKET=sensor_data
+      - API_KEY=dev-api-key-c2
     restart: on-failure
     
 volumes: {}

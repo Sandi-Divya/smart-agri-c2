@@ -1,14 +1,27 @@
 from fastapi import FastAPI, Header, HTTPException, Depends
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 import os
 from datetime import datetime
+from influxdb_client import InfluxDBClient
 
 # ── App Setup ────────────────────────────────────────────
 app = FastAPI(
-    title="Smart Agriculture API",
+    title="Smart Agriculture API - C2",
     description="C2 Data & Intelligence API for Smart Agriculture Platform",
     version="1.0.0"
+)
+
+# ── InfluxDB Setup ───────────────────────────────────────
+INFLUX_URL = os.getenv("INFLUX_URL", "https://influxdb.cropwise.garden")
+INFLUX_TOKEN = os.getenv("INFLUX_TOKEN", "my-super-secret-auth-token")
+INFLUX_ORG = os.getenv("INFLUX_ORG", "smart_agri")
+INFLUX_BUCKET = os.getenv("INFLUX_BUCKET", "sensor_data")
+
+influx_client = InfluxDBClient(
+    url=INFLUX_URL,
+    token=INFLUX_TOKEN,
+    org=INFLUX_ORG
 )
 
 # ── API Key Auth ─────────────────────────────────────────
@@ -19,7 +32,7 @@ def verify_api_key(x_api_key: str = Header(...)):
         raise HTTPException(status_code=403, detail="Invalid API Key")
     return x_api_key
 
-# ── Request/Response Models ───────────────────────────────
+# ── Models ───────────────────────────────────────────────
 class IrrigationRequest(BaseModel):
     field_id: str
     crop_type: str
@@ -27,56 +40,24 @@ class IrrigationRequest(BaseModel):
     temperature: float
     humidity: float
 
-class IrrigationResponse(BaseModel):
-    field_id: str
-    recommended_water_mm: float
-    irrigation_duration_mins: int
-    growth_stage: str
-    evapotranspiration: float
-    timestamp: str
-
-class YieldResponse(BaseModel):
-    field_id: str
-    predicted_yield_kg_per_ha: float
-    confidence: float
-    timestamp: str
-
-class SoilMoistureResponse(BaseModel):
-    field_id: str
-    current: float
-    forecast_24h: list
-    timestamp: str
-
-class AnomalyResponse(BaseModel):
-    anomalies: list
-    total_count: int
-    timestamp: str
-
-class GrowthStageResponse(BaseModel):
-    field_id: str
-    growth_stage: str
-    stage_number: int
-    days_in_stage: int
-    timestamp: str
-
-class EvapotranspirationResponse(BaseModel):
-    field_id: str
-    et0_mm_per_day: float
-    kc: float
-    etc_mm_per_day: float
-    timestamp: str
-
 class HealthResponse(BaseModel):
     status: str
     version: str
     timestamp: str
-    models_loaded: list
+    models_loaded: List[str]
     db_connected: bool
+    kafka_broker: str
 
-# ── Endpoints ────────────────────────────────────────────
-
-@app.get("/health", response_model=HealthResponse)
+# ── Health Endpoint ──────────────────────────────────────
+@app.get("/health")
 def health_check():
+    # Check InfluxDB connectivity
+    try:
+        health = influx_client.health()
+        db_connected = health.status == "pass"
+    except:
+        db_connected = False
+
     return {
         "status": "healthy",
         "version": "1.0.0",
@@ -89,15 +70,16 @@ def health_check():
             "growth_stage_classifier_v1",
             "evapotranspiration_model_v1"
         ],
-        "db_connected": True
+        "db_connected": db_connected,
+        "kafka_broker": "kafka.cropwise.garden:9094"
     }
 
-@app.get("/predict/yield", response_model=YieldResponse)
+# ── Endpoints ────────────────────────────────────────────
+@app.get("/predict/yield")
 def predict_yield(
     field_id: str = "field1",
     api_key: str = Depends(verify_api_key)
 ):
-    # Placeholder — will connect to MLflow model
     return {
         "field_id": field_id,
         "predicted_yield_kg_per_ha": 4250.75,
@@ -105,19 +87,15 @@ def predict_yield(
         "timestamp": datetime.utcnow().isoformat() + "Z"
     }
 
-@app.post("/optimize/irrigation", response_model=IrrigationResponse)
+@app.post("/optimize/irrigation")
 def optimize_irrigation(
     request: IrrigationRequest,
     api_key: str = Depends(verify_api_key)
 ):
-    # Calls growth stage + ET internally
     growth = _get_growth_stage(request.field_id)
     et = _get_evapotranspiration(request.field_id)
-    
-    # Simple irrigation calculation
     water_needed = max(0, et["etc_mm_per_day"] - (request.soil_moisture * 0.1))
     duration = int(water_needed * 6)
-
     return {
         "field_id": request.field_id,
         "recommended_water_mm": round(water_needed, 2),
@@ -127,7 +105,7 @@ def optimize_irrigation(
         "timestamp": datetime.utcnow().isoformat() + "Z"
     }
 
-@app.get("/forecast/soil-moisture", response_model=SoilMoistureResponse)
+@app.get("/forecast/soil-moisture")
 def forecast_soil_moisture(
     field_id: str = "field1",
     api_key: str = Depends(verify_api_key)
@@ -143,7 +121,7 @@ def forecast_soil_moisture(
         "timestamp": datetime.utcnow().isoformat() + "Z"
     }
 
-@app.get("/anomalies/sensors", response_model=AnomalyResponse)
+@app.get("/anomalies/sensors")
 def get_anomalies(
     field_id: str = "field1",
     api_key: str = Depends(verify_api_key)
@@ -164,27 +142,42 @@ def get_anomalies(
         "timestamp": datetime.utcnow().isoformat() + "Z"
     }
 
-@app.get("/classify/growth-stage", response_model=GrowthStageResponse)
+@app.get("/classify/growth-stage")
 def classify_growth_stage(
     field_id: str = "field1",
     api_key: str = Depends(verify_api_key)
 ):
     return _get_growth_stage(field_id)
 
-@app.get("/compute/evapotranspiration", response_model=EvapotranspirationResponse)
+@app.get("/compute/evapotranspiration")
 def compute_evapotranspiration(
     field_id: str = "field1",
     api_key: str = Depends(verify_api_key)
 ):
     return _get_evapotranspiration(field_id)
 
-# ── Internal Helper Functions ─────────────────────────────
+@app.get("/satellite/ndvi")
+def get_ndvi(
+    field_id: str = "field1",
+    api_key: str = Depends(verify_api_key)
+):
+    return {
+        "field_id": field_id,
+        "ndvi": 0.72,
+        "classification": "Healthy Vegetation",
+        "captured_at": datetime.utcnow().isoformat() + "Z",
+        "satellite": "Sentinel-2",
+        "status": "pending_cr_integration"
+    }
+
+# ── Helpers ──────────────────────────────────────────────
 def _get_growth_stage(field_id: str):
     return {
         "field_id": field_id,
         "growth_stage": "Vegetative",
         "stage_number": 2,
         "days_in_stage": 14,
+        "kc": 0.85,
         "timestamp": datetime.utcnow().isoformat() + "Z"
     }
 
