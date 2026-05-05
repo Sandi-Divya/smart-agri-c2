@@ -14,14 +14,14 @@ consumer = KafkaConsumer(
     'sensor.humidity',
     'sensor.pressure',
     'sensor.solar_radiation',
-    bootstrap_servers='kafka.cropwise.garden:9094',
+    bootstrap_servers='kafka:9092',
     value_deserializer=lambda x: json.loads(x.decode('utf-8')),
     auto_offset_reset='latest',
     group_id='c2-stream-processor'
 )
 
 producer = KafkaProducer(
-    bootstrap_servers='kafka.cropwise.garden:9094',
+    bootstrap_servers='kafka:9092',
     value_serializer=lambda x: json.dumps(x).encode('utf-8')
 )
 

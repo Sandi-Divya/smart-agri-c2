@@ -4,6 +4,6 @@ WORKDIR /app
 
 COPY stream_processor.py .
 
-RUN pip install kafka-python
+RUN pip install kafka-python influxdb-client
 
 CMD ["python", "/app/stream_processor.py"]

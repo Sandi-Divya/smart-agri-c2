@@ -426,5 +426,46 @@
                 "file": "/usr/src/node-red/node_modules/@node-red/nodes/core/storage/23-watch.js"
             }
         }
+    },
+    "node-red-contrib-kafkajs": {
+        "name": "node-red-contrib-kafkajs",
+        "version": "0.0.7",
+        "local": false,
+        "user": false,
+        "nodes": {
+            "kafka-consumer": {
+                "name": "kafka-consumer",
+                "types": [
+                    "kafkajs-consumer"
+                ],
+                "enabled": true,
+                "local": false,
+                "user": false,
+                "module": "node-red-contrib-kafkajs",
+                "file": "/usr/src/node-red/node_modules/node-red-contrib-kafkajs/js/kafka-consumer.js"
+            },
+            "kafka-producer": {
+                "name": "kafka-producer",
+                "types": [
+                    "kafkajs-producer"
+                ],
+                "enabled": true,
+                "local": false,
+                "user": false,
+                "module": "node-red-contrib-kafkajs",
+                "file": "/usr/src/node-red/node_modules/node-red-contrib-kafkajs/js/kafka-producer.js"
+            },
+            "kafka-broker": {
+                "name": "kafka-broker",
+                "types": [
+                    "kafkajs-client"
+                ],
+                "enabled": true,
+                "local": false,
+                "user": false,
+                "module": "node-red-contrib-kafkajs",
+                "file": "/usr/src/node-red/node_modules/node-red-contrib-kafkajs/js/kafka-client.js"
+            }
+        }
     }
 }
